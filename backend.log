@@ -1,5 +1,5 @@
 
-> job-portal@1.0.0 start
+> koolie@1.0.0 start
 > node server.js
 
 Server running on port 5000

@@ -5,6 +5,50 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
+// Get all applications for employer
+router.get('/', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'employer') {
+      return res.status(403).json({ message: 'Only employers can view applications' });
+    }
+
+    const jobs = await Job.find({ employer: req.user.userId })
+      .populate('applicants.user', 'name email profile')
+      .select('title company location applicants createdAt');
+
+    // Flatten applications with job info
+    const applications = [];
+    jobs.forEach(job => {
+      job.applicants.forEach(app => {
+        applications.push({
+          _id: app._id,
+          job: {
+            _id: job._id,
+            title: job.title,
+            company: job.company,
+            location: job.location
+          },
+          applicant: app.user,
+          appliedAt: app.appliedAt,
+          status: app.status,
+          coverLetter: app.coverLetter
+        });
+      });
+    });
+
+    // Sort by most recent first
+    applications.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt));
+
+    res.json({
+      applications,
+      total: applications.length
+    });
+  } catch (error) {
+    console.error('Get applications error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Update application status (employer only)
 router.put('/:jobId/:applicantId', auth, async (req, res) => {
   try {
