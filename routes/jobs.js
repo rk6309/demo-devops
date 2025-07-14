@@ -4,6 +4,27 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
+// Get employer's jobs
+router.get('/my-jobs', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'employer') {
+      return res.status(403).json({ message: 'Only employers can access this endpoint' });
+    }
+
+    const jobs = await Job.find({ employer: req.user.userId })
+      .populate('applicants.user', 'name email profile')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      jobs,
+      total: jobs.length
+    });
+  } catch (error) {
+    console.error('Get employer jobs error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get all jobs with filtering and pagination
 router.get('/', async (req, res) => {
   try {

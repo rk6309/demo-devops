@@ -21,11 +21,28 @@ const Applications = () => {
   const fetchData = async () => {
     try {
       if (user?.role === 'jobseeker') {
-        const response = await axios.get('/api/users/applications');
+        const response = await axios.get('/api/users/applications', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
         setApplications(response.data);
       } else if (user?.role === 'employer') {
-        const response = await axios.get('/api/users/jobs');
-        setJobs(response.data);
+        // Fetch applications for employer
+        const applicationsResponse = await axios.get('/api/applications', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setApplications(applicationsResponse.data.applications || []);
+        
+        // Also fetch jobs for the jobs tab
+        const jobsResponse = await axios.get('/api/jobs/my-jobs', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setJobs(jobsResponse.data.jobs || []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -273,7 +290,7 @@ const Applications = () => {
 
             {activeTab === 'applications' && (
               <div className="space-y-6">
-                {jobs.filter(job => job.applicants?.length > 0).length === 0 ? (
+                {applications.length === 0 ? (
                   <div className="text-center py-12">
                     <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -284,40 +301,97 @@ const Applications = () => {
                     </p>
                   </div>
                 ) : (
-                  jobs
-                    .filter(job => job.applicants?.length > 0)
-                    .map((job) => (
-                      <div key={job._id} className="card">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {job.title}
-                          </h3>
-                          <span className="badge badge-blue">
-                            {job.applicants.length} applications
-                          </span>
-                        </div>
-                        
-                        <div className="text-sm text-gray-600 mb-4">
-                          Recent applications for this position
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm text-gray-500">
-                            Latest application: {
-                              job.applicants.length > 0 
-                                ? new Date(Math.max(...job.applicants.map(app => new Date(app.appliedAt)))).toLocaleDateString()
-                                : 'N/A'
-                            }
+                  applications.map((application, index) => (
+                    <div key={index} className="card">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h3 className="text-xl font-semibold text-gray-900">
+                                {application.applicant.name}
+                              </h3>
+                              <p className="text-gray-600">{application.applicant.email}</p>
+                            </div>
+                            <div className="flex items-center ml-4">
+                              {getStatusIcon(application.status)}
+                              <span className={`badge ${getStatusColor(application.status)} ml-2`}>
+                                {application.status}
+                              </span>
+                            </div>
                           </div>
-                          <Link
-                            to={`/jobs/${job._id}/applications`}
-                            className="btn-primary"
-                          >
-                            Review Applications
-                          </Link>
+                          
+                          <div className="mb-3">
+                            <p className="text-lg font-medium text-gray-900">
+                              Applied for: {application.job.title}
+                            </p>
+                            <div className="flex items-center text-gray-600 mt-1">
+                              <MapPin className="h-4 w-4 mr-1" />
+                              <span>{application.job.location}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 mr-1" />
+                              <span>
+                                Applied {new Date(application.appliedAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {application.applicant.profile?.experience && (
+                              <div className="flex items-center">
+                                <Briefcase className="h-4 w-4 mr-1" />
+                                <span>Experience: {application.applicant.profile.experience}</span>
+                              </div>
+                            )}
+                            {application.applicant.profile?.location && (
+                              <div className="flex items-center">
+                                <MapPin className="h-4 w-4 mr-1" />
+                                <span>Location: {application.applicant.profile.location}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {application.applicant.profile?.skills && (
+                            <div className="mb-4">
+                              <p className="text-sm font-medium text-gray-700 mb-2">Skills:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {application.applicant.profile.skills.slice(0, 5).map((skill, skillIndex) => (
+                                  <span key={skillIndex} className="badge badge-gray">
+                                    {skill}
+                                  </span>
+                                ))}
+                                {application.applicant.profile.skills.length > 5 && (
+                                  <span className="badge badge-gray">
+                                    +{application.applicant.profile.skills.length - 5} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-gray-500">
+                              Application ID: {application._id}
+                            </div>
+                            <div className="flex space-x-2">
+                              <Link
+                                to={`/profile/${application.applicant._id}`}
+                                className="btn-outline"
+                              >
+                                View Profile
+                              </Link>
+                              <Link
+                                to={`/jobs/${application.job._id}`}
+                                className="btn-outline"
+                              >
+                                View Job
+                              </Link>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    ))
+                    </div>
+                  ))
                 )}
               </div>
             )}
